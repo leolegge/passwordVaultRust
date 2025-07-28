@@ -1,14 +1,33 @@
 use std::io;
+use std::fs;
 use age::secrecy::Secret;
 use std::io::{Read, Write};
 
+
+#[allow(dead_code)]
 struct Vault {
     entries : Vec<Entry>,
 }
 
+impl Vault {
+    fn new() -> Vault {
+        Vault { entries: Vec::new() }
+    }
+    
+    fn add_entry(&mut self, entry: Entry) {
+        self.entries.push(entry);
+    }
+}
+
+#[allow(dead_code)]
 struct Entry{
     identifier: Vec<u8>,
     password: Vec<u8>,
+}
+impl Entry{
+    fn new(identifier: Vec<u8>, password: Vec<u8>) -> Entry{
+        Entry{identifier, password }
+    }
 }
 
 
@@ -34,11 +53,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>>  {
         };
         
         match option {
-            0 => {
+            1 => {
                 println!("Please select desired vault");
                 //TODO implement function here to find vaults in the projects directory
+                get_all_vaults();
             }
-            1 => {
+            2 => {
                 println!("Please select new name for new vault");
                 //TODO implement function that allows creation of a new vault file
             }
@@ -53,10 +73,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>>  {
         
         
     }
-    
-    
-    
-    
     
     
     
@@ -114,5 +130,15 @@ pub fn decrypt_with_passphrase(passphrase: &str, encrypted: &[u8]) -> Result<Vec
         reader.read_to_end(&mut decrypted)?;
 
     Ok(decrypted)
+}
+
+pub fn get_all_vaults(){
+    //TODO example code for getting all directories in root
+    let paths = fs::read_dir("./").unwrap();
+
+    for path in paths {
+        println!("Name: {}", path.unwrap().path().display())
+    }
+    
 }
 
