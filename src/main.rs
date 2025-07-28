@@ -7,8 +7,8 @@ struct Vault {
 }
 
 struct Entry{
-    identifier: String,
-    password: String,
+    identifier: Vec<u8>,
+    password: Vec<u8>,
 }
 
 
