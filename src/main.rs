@@ -2,6 +2,15 @@ use std::io;
 use age::secrecy::Secret;
 use std::io::{Read, Write};
 
+struct Vault {
+    entries : Vec<Entry>,
+}
+
+struct Entry{
+    identifier: String,
+    password: String,
+}
+
 
 fn main() -> Result<(), Box<dyn std::error::Error>>  {
     
