@@ -1,10 +1,17 @@
 use std::io;
 use std::fs;
+use std::fs::File;
 use age::secrecy::Secret;
+use age::armor::ArmoredWriter;
 use std::io::{Read, Write};
+use age::Encryptor;
+use serde::{Serialize, Deserialize};
+use std::io::{BufWriter};
 
 
-#[allow(dead_code)]
+
+
+
 struct Vault {
     entries : Vec<Entry>,
 }
@@ -19,7 +26,7 @@ impl Vault {
     }
 }
 
-#[allow(dead_code)]
+
 struct Entry{
     identifier: Vec<u8>,
     password: Vec<u8>,
@@ -54,13 +61,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>>  {
         
         match option {
             1 => {
-                println!("Please select desired vault");
+                println!("Please select desired vault to add to or read from");
                 //TODO implement function here to find vaults in the projects directory
                 get_all_vaults();
             }
             2 => {
                 println!("Please select new name for new vault");
                 //TODO implement function that allows creation of a new vault file
+                let mut new_name = String::new();
+                
+                io::stdin()
+                    .read_line(&mut new_name)
+                    .expect("Failed to read line");
+                
+                let new_vault = Vault::new();
+                
+                
             }
             3 => {
                 break
@@ -139,6 +155,14 @@ pub fn get_all_vaults(){
     for path in paths {
         println!("Name: {}", path.unwrap().path().display())
     }
+}
+
+pub fn save_vault_to_file(vault: Vault ,passphrase: &str ,filename: &str) -> Result<(), Box<dyn std::error::Error>> {
+
+    let vault_path = std::env::current_exe()?.parent().unwrap().to_path_buf().join(filename);
+
     
+
+    Ok(())
 }
 
