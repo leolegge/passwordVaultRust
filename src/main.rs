@@ -62,11 +62,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>>  {
             1 => {
                 println!("Please select desired vault to add to or read from");
                 //TODO implement function here to find vaults in the projects directory
-                get_all_vaults();
+                match get_all_vaults(){
+                    Ok(vaults) => {
+                        for vault in vaults {
+                            println!("{:?}", vault);
+                        }
+                    }
+                    Err(e) => println!("{}", e),
+                }
             }
             2 => {
                 println!("Please select new name for new vault");
-                //TODO implement function that allows creation of a new vault file
                 let mut new_name = String::new();
                 
                 io::stdin()
@@ -157,13 +163,26 @@ fn decrypt_with_passphrase(passphrase: &str, encrypted: &[u8]) -> Result<Vec<u8>
     Ok(decrypted)
 }
 
-fn get_all_vaults(){
+fn get_all_vaults() -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
     //TODO example code for getting all directories in root
-    let paths = fs::read_dir("./").unwrap();
+    let current_dir = std::env::current_dir()?;
+    let mut age_files = Vec::new();
 
-    for path in paths {
-        println!("Name: {}", path.unwrap().path().display())
+    for entry in fs::read_dir(current_dir)? {
+        let entry = entry?;
+        let path = entry.path();
+
+        // Check if file has `.age` extension
+        if path.extension().and_then(|ext| ext.to_str()) == Some("age") {
+            age_files.push(path);
+        }
     }
+    
+    if(age_files.len() > 0) {
+        return Ok(age_files)
+    };
+
+    Err(Box::new(io::Error::new(io::ErrorKind::NotFound, "No vaults found")))
 }
 
 
