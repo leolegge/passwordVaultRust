@@ -173,32 +173,14 @@ fn save_vault_to_file(
     passphrase: Secret<String>,
     filename: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // 1. Sanitize the filename by trimming whitespace and special chars
-    let sanitized = filename.trim().replace(|c: char| c.is_control(), "");
-
-    // 2. Create proper path handling
-    let vault_path = Path::new(&sanitized).with_extension("age");
-
-    // 3. Validate filename (additional safety check)
-    if sanitized.is_empty() || sanitized.contains(|c: char| c == '/' || c == '\\') {
-        return Err("Invalid filename provided".into());
-    }
-
-    // 4. Create parent directories if needed
-    if let Some(parent) = vault_path.parent() {
-        fs::create_dir_all(parent)?;
-    }
-
-    // 5. Serialize and encrypt
+    let sanitized_filename = filename.trim();
+    let vault_path = Path::new(&sanitized_filename).with_extension("age");
     let serialized_data = serde_json::to_vec(vault)?;
-    let encrypted_file = File::create(&vault_path)
-        .map_err(|e| format!("Failed to create '{}': {}", vault_path.display(), e))?;
-
+    let encrypted_file = File::create(&vault_path)?;
     let encryptor = Encryptor::with_user_passphrase(passphrase);
     let mut writer = encryptor.wrap_output(encrypted_file)?;
     writer.write_all(&serialized_data)?;
     writer.finish()?;
-
     println!("Vault saved to: {}", vault_path.display());
     Ok(())
 }
