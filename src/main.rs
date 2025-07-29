@@ -1,14 +1,11 @@
 use std::io;
 use std::fs;
 use std::fs::File;
-
-use age::armor::{ArmoredWriter, Format};
-
 use age::{Decryptor, Encryptor};
 use serde::{Serialize, Deserialize};
-
 use secrecy::{ExposeSecret, Secret};
 use std::io::{BufReader, Read, Write};
+use std::path::{Path, PathBuf};
 
 
 
@@ -83,11 +80,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>  {
                         .expect("Failed to read passphrase")
                 );
                 
-                println!("{:?}", passphrase);
-                
-                
-                
-                save_vault_to_file(new_vault, passphrase, &new_name)?;
+                save_vault_to_file(&new_vault, passphrase, &new_name)?;
                 
                 
                 
@@ -175,25 +168,38 @@ fn get_all_vaults(){
 
 
 //TODO learn how to write to a file
-fn save_vault_to_file(vault: Vault ,passphrase: Secret<String> ,filename: &str) -> Result<(), Box<dyn std::error::Error>> {
-    
-    // 2. Serialize to JSON
-    let json = serde_json::to_string(&vault)?;
+fn save_vault_to_file(
+    vault: &impl Serialize,
+    passphrase: Secret<String>,
+    filename: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // 1. Sanitize the filename by trimming whitespace and special chars
+    let sanitized = filename.trim().replace(|c: char| c.is_control(), "");
 
-    // 3. Open file to write encrypted output
-    let file = File::create([filename, ".age"].concat())?;
-    let armor = ArmoredWriter::wrap_output(file, Format::Binary)?;
+    // 2. Create proper path handling
+    let vault_path = Path::new(&sanitized).with_extension("age");
 
-    // 4. Create encryptor with passphrase
+    // 3. Validate filename (additional safety check)
+    if sanitized.is_empty() || sanitized.contains(|c: char| c == '/' || c == '\\') {
+        return Err("Invalid filename provided".into());
+    }
+
+    // 4. Create parent directories if needed
+    if let Some(parent) = vault_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+
+    // 5. Serialize and encrypt
+    let serialized_data = serde_json::to_vec(vault)?;
+    let encrypted_file = File::create(&vault_path)
+        .map_err(|e| format!("Failed to create '{}': {}", vault_path.display(), e))?;
+
     let encryptor = Encryptor::with_user_passphrase(passphrase);
-
-    // 5. Encrypt and write
-    let mut writer = encryptor.wrap_output(armor)?;
-    writer.write_all(json.as_bytes())?;
+    let mut writer = encryptor.wrap_output(encrypted_file)?;
+    writer.write_all(&serialized_data)?;
     writer.finish()?;
 
-    println!("Encrypted and saved");
-
+    println!("Vault saved to: {}", vault_path.display());
     Ok(())
 }
 
@@ -201,15 +207,7 @@ fn save_vault_to_file(vault: Vault ,passphrase: Secret<String> ,filename: &str) 
 //TODO learn how to read from a file
 /*
 fn load_vault_from_file(filename: &str, passphrase: Secret<String> ) -> Result<Vault, Box<dyn std::error::Error>> {
-    let vault_path = std::env::current_exe()?.parent().unwrap().to_path_buf().join([filename, ".age"].concat());
-    
-    let file = File::open(vault_path)?;
-    let mut reader = BufReader::new(file);
-
-    
-
-
-    Ok(())
+   
 }
 
 
