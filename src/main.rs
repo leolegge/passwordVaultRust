@@ -3,9 +3,10 @@ use std::fs;
 use std::fs::File;
 use age::{Decryptor, Encryptor};
 use serde::{Serialize, Deserialize};
-use secrecy::{ExposeSecret, Secret};
-use std::io::{BufReader, Read, Write};
+use secrecy::{Secret};
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
+
 
 
 
@@ -27,11 +28,11 @@ impl Vault {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Entry{
-    identifier: Vec<u8>,
-    password: Vec<u8>,
+    identifier: String,
+    password: String,
 }
 impl Entry{
-    fn new(identifier: Vec<u8>, password: Vec<u8>) -> Entry{
+    fn new(identifier: String, password: String) -> Entry{
         Entry{identifier, password }
     }
 }
@@ -39,11 +40,11 @@ impl Entry{
 
 fn main() -> Result<(), Box<dyn std::error::Error>>  {
     
-    println!("Welcome to the password vault accessor");
+    println!("Welcome to the password vault accessor system");
     
     loop{
-        println!("Please enter the option you would like to do \n\
-        1.Enter password vault to use:\n\
+        println!("Please select an option \n\
+        1.Enter password vault to use\n\
         2.Create new password vault\n\
         3.Exit password vault");
         
@@ -61,14 +62,87 @@ fn main() -> Result<(), Box<dyn std::error::Error>>  {
         match option {
             1 => {
                 println!("Please select desired vault to add to or read from");
-                //TODO implement function here to find vaults in the projects directory
-                match get_all_vaults(){
+                let vaults = match get_all_vaults(){
                     Ok(vaults) => {
-                        for vault in vaults {
-                            println!("{:?}", vault);
+                        let mut vault_number = 1;
+                        for vault in &vaults {
+                            println!("{}. {}", vault_number,vault.file_name().unwrap().to_str().unwrap());
+                            vault_number += 1;
                         }
+                        vaults
                     }
-                    Err(e) => println!("{}", e),
+                    Err(e) => {
+                        println!("{}", e);
+                        continue;
+                    }
+                };
+                
+                let mut vault_option = String::new();
+                
+                io::stdin().read_line(
+                    &mut vault_option)
+                    .expect("Failed to read line");
+                
+                let mut vault_option :usize = match vault_option.trim().parse(){
+                    Ok(num) => num,
+                    Err(_) => continue,
+                };
+                
+                vault_option = vault_option.checked_sub(1).unwrap();
+                
+                let selected_vault = match vaults.get(vault_option){
+                    Some(vault) => vault,
+                    None => continue,
+                };
+                
+                println!("You selected {}",  selected_vault.file_name().unwrap().to_str().unwrap());
+                
+                let passphrase = Secret::new(
+                    rpassword::prompt_password("Enter passphrase for this vault: ")
+                        .expect("Failed to read passphrase")
+                );
+                
+                let mut loaded_vault = match load_vault_from_file(selected_vault, passphrase){
+                    Ok(vault) => {
+                        println!("Vault successfully loaded to memory");
+                        vault
+                    },
+                    Err(e) => {
+                        println!("{}", e);
+                        continue;
+                    }
+                };
+                
+                loop {
+                    println!("What would you like to do with you vault:\n\
+                            1.Add new entry\n\
+                            2.View all entries\n\
+                            3.Exit password vault");
+                    let mut entry_option = String::new();
+                    
+                    io::stdin()
+                        .read_line(&mut entry_option)
+                        .expect("Failed to read line");
+
+                    let entry_option : u8 =  match entry_option.trim().parse(){
+                        Ok(num) => num,
+                        Err(_) => continue,
+                    };
+                    
+                    
+                    match entry_option {
+                        1 => add_new_entry(&mut loaded_vault),
+                        2 => view_entries(&loaded_vault),
+                        3 => {
+                            //TODO once this is ran save the file by overwriting it
+                            
+                            break
+                        },
+                        _ => continue,
+                        
+                    }
+                    
+                    
                 }
             }
             2 => {
@@ -109,7 +183,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>  {
     
     //EXAMPLE //////////////////////////////////////////////////////////////////////////////////
     
-    
+    /*
     let plaintext = b"Hello world!";
     let passphrase = "this is not a good passphrase";
     
@@ -133,6 +207,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>>  {
 
     //////////////////////////////////////////////////////////////////////////////////////////
 
+
+     */
     
     Ok(())
 }
@@ -164,7 +240,6 @@ fn decrypt_with_passphrase(passphrase: &str, encrypted: &[u8]) -> Result<Vec<u8>
 }
 
 fn get_all_vaults() -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
-    //TODO example code for getting all directories in root
     let current_dir = std::env::current_dir()?;
     let mut age_files = Vec::new();
 
@@ -186,7 +261,6 @@ fn get_all_vaults() -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
 }
 
 
-//TODO learn how to write to a file
 fn save_vault_to_file(
     vault: &impl Serialize,
     passphrase: Secret<String>,
@@ -205,11 +279,39 @@ fn save_vault_to_file(
 }
 
 
-//TODO learn how to read from a file
-/*
-fn load_vault_from_file(filename: &str, passphrase: Secret<String> ) -> Result<Vault, Box<dyn std::error::Error>> {
-   
+fn load_vault_from_file(file_path: &PathBuf, passphrase: Secret<String> ) -> Result<Vault, Box<dyn std::error::Error>> {
+    let encrypted_file = File::open(&file_path)?;
+    
+    let decryptor = match Decryptor::new(encrypted_file)? {
+        Decryptor::Passphrase(d) => d,
+        _ => return Err("File is not passphrase encrypted".into()),
+    };
+    
+    let mut reader = decryptor.decrypt(&passphrase, None)?;
+    
+    let mut decrypted_data = Vec::new();
+    reader.read_to_end(&mut decrypted_data)?;
+    
+    let vault = serde_json::from_slice(&decrypted_data)?;
+
+    Ok(vault)
 }
 
+fn add_new_entry(vault: &mut Vault){
+    println!("Type in the identifier for your new entry:");
+    let mut identifier = String::new();
+    io::stdin().read_line(&mut identifier).expect("Failed to read line");
+    println!("Enter the password relating to your new entry:");
+    let mut password = String::new();
+    io::stdin().read_line(&mut password).expect("Failed to read line"); 
+    
+    vault.add_entry(Entry::new(identifier.trim().to_string(), password.trim().to_string()));
+    println!("Added new entry!");
+}
 
- */
+fn view_entries(vault: &Vault){
+    for entry in vault.entries.iter() {
+        println!("{:#?}", entry)
+    }
+}
+ 
