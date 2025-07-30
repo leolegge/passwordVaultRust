@@ -24,6 +24,10 @@ impl Vault {
     fn add_entry(&mut self, entry: Entry) {
         self.entries.push(entry);
     }
+    
+    fn remove_entry(&mut self, entry_remove: usize) {
+        self.entries.remove(entry_remove);
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -84,7 +88,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>  {
                     &mut vault_option)
                     .expect("Failed to read line");
                 
-                let mut vault_option :usize = match vault_option.trim().parse(){
+                let vault_option :usize = match vault_option.trim().parse(){
                     Ok(num) => num,
                     Err(_) => continue,
                 };
@@ -122,7 +126,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>>  {
                     println!("What would you like to do with you vault:\n\
                             1.Add new entry\n\
                             2.View all entries\n\
-                            3.Exit current vault");
+                            3.Delete entry\n\
+                            4.Exit and save current vault");
                     let mut entry_option = String::new();
                     
                     io::stdin()
@@ -139,6 +144,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>>  {
                         1 => add_new_entry(&mut loaded_vault),
                         2 => view_entries(&loaded_vault),
                         3 => {
+                            println!("Select entry to remove");
+                            
+                            view_entries(&loaded_vault);
+                            
+                            let mut entry_deletion_option = String::new();
+                            io::stdin().read_line(&mut entry_deletion_option).expect("Failed to read line");
+
+
+                            let entry_deletion_option : usize =  match entry_deletion_option.trim().parse(){
+                                Ok(num) => num,
+                                Err(_) => continue,
+                            };
+                            
+                            match entry_deletion_option.checked_sub(1) {
+                                Some(idx) if idx < loaded_vault.entries.len() => {
+                                    loaded_vault.remove_entry(idx);
+                                }
+                                _ => continue
+                            }
+                        }
+                        4 => {
                             save_vault_to_file(&loaded_vault, passphrase , selected_vault.file_name().unwrap().to_str().unwrap())?;
                             break
                         },
@@ -160,11 +186,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>  {
                     rpassword::prompt_password("Enter passphrase for your new vault: ")
                         .expect("Failed to read passphrase")
                 );
-                
                 save_vault_to_file(&new_vault, passphrase, &new_name)?;
-                
-                
-                
             }
             3 => {
                 println!("Please select desired vault to delete:");
@@ -189,7 +211,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>  {
                     &mut vault_option)
                     .expect("Failed to read line");
 
-                let mut vault_option :usize = match vault_option.trim().parse(){
+                let vault_option :usize = match vault_option.trim().parse(){
                     Ok(num) => num,
                     Err(_) => continue,
                 };
@@ -296,8 +318,10 @@ fn add_new_entry(vault: &mut Vault){
 }
 
 fn view_entries(vault: &Vault){
+    let mut entry_number: u8 = 1;
     for entry in vault.entries.iter() {
-        println!("Identifier: {} - Password: {}\n", entry.identifier, entry.password)
+        println!("{}. Identifier: {} - Password: {}\n",entry_number, entry.identifier, entry.password);
+        entry_number += 1;
     }
 }
 
@@ -325,8 +349,5 @@ fn delete_vault(vault: &PathBuf){
     }
 }
 
-fn delete_vault_entry(entry: &Entry){
-    
-    
-}
+
  
