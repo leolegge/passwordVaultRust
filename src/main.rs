@@ -44,9 +44,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>>  {
     
     loop{
         println!("Please select an option \n\
-        1.Enter password vault to use\n\
-        2.Create new password vault\n\
-        3.Exit password vault");
+        1.Enter vault to use\n\
+        2.Create new vault\n\
+        3.Delete a vault\n\
+        4.Exit password vault");
         
         let mut option = String::new();
         
@@ -87,14 +88,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>>  {
                     Ok(num) => num,
                     Err(_) => continue,
                 };
-                
-                vault_option = vault_option.checked_sub(1).unwrap();
-                
-                let selected_vault = match vaults.get(vault_option){
+
+                let vault_option = match vault_option.checked_sub(1) {
+                    Some(idx) if idx < vaults.len() => idx,  // Valid index case
+                    _ => continue,  // Handles both subtraction underflow and invalid index
+                };
+
+                let selected_vault = match vaults.get(vault_option) {
                     Some(vault) => vault,
                     None => continue,
                 };
-                
+
+
                 println!("You selected {}",  selected_vault.file_name().unwrap().to_str().unwrap());
                 
                 let passphrase = Secret::new(
@@ -102,7 +107,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>  {
                         .expect("Failed to read passphrase")
                 );
                 
-                let mut loaded_vault = match load_vault_from_file(selected_vault, passphrase){
+                let mut loaded_vault = match load_vault_from_file(selected_vault, &passphrase){
                     Ok(vault) => {
                         println!("Vault successfully loaded to memory");
                         vault
@@ -134,15 +139,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>>  {
                         1 => add_new_entry(&mut loaded_vault),
                         2 => view_entries(&loaded_vault),
                         3 => {
-                            //TODO once this is ran save the file by overwriting it
-                            
+                            save_vault_to_file(&loaded_vault, passphrase , selected_vault.file_name().unwrap().to_str().unwrap())?;
                             break
                         },
                         _ => continue,
-                        
                     }
-                    
-                    
                 }
             }
             2 => {
@@ -166,6 +167,48 @@ fn main() -> Result<(), Box<dyn std::error::Error>>  {
                 
             }
             3 => {
+                println!("Please select desired vault to delete:");
+                let vaults = match get_all_vaults(){
+                    Ok(vaults) => {
+                        let mut vault_number = 1;
+                        for vault in &vaults {
+                            println!("{}. {}", vault_number,vault.file_name().unwrap().to_str().unwrap());
+                            vault_number += 1;
+                        }
+                        vaults
+                    }
+                    Err(e) => {
+                        println!("{}", e);
+                        continue;
+                    }
+                };
+
+                let mut vault_option = String::new();
+
+                io::stdin().read_line(
+                    &mut vault_option)
+                    .expect("Failed to read line");
+
+                let mut vault_option :usize = match vault_option.trim().parse(){
+                    Ok(num) => num,
+                    Err(_) => continue,
+                };
+
+                let vault_option = match vault_option.checked_sub(1) {
+                    Some(idx) if idx < vaults.len() => idx,  // Valid index case
+                    _ => continue,  // Handles both subtraction underflow and invalid index
+                };
+
+                let selected_vault = match vaults.get(vault_option) {
+                    Some(vault) => vault,
+                    None => continue,
+                };
+                
+                println!("You selected to delete {}",  selected_vault.file_name().unwrap().to_str().unwrap());
+                
+                delete_vault(selected_vault);
+            }
+            4 => {
                 break
             }
             _ => {
@@ -196,7 +239,7 @@ fn get_all_vaults() -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
         }
     }
     
-    if(age_files.len() > 0) {
+    if age_files.len() > 0 {
         return Ok(age_files)
     };
 
@@ -222,7 +265,7 @@ fn save_vault_to_file(
 }
 
 
-fn load_vault_from_file(file_path: &PathBuf, passphrase: Secret<String> ) -> Result<Vault, Box<dyn std::error::Error>> {
+fn load_vault_from_file(file_path: &PathBuf, passphrase: &Secret<String> ) -> Result<Vault, Box<dyn std::error::Error>> {
     let encrypted_file = File::open(&file_path)?;
     
     let decryptor = match Decryptor::new(encrypted_file)? {
@@ -256,5 +299,34 @@ fn view_entries(vault: &Vault){
     for entry in vault.entries.iter() {
         println!("Identifier: {} - Password: {}\n", entry.identifier, entry.password)
     }
+}
+
+fn delete_vault(vault: &PathBuf){
+    
+    println!("Type 'confirm' to delete vault:");
+    
+    let mut confirm = String::new();
+    
+    io::stdin().read_line(&mut confirm).expect("Failed to read line");
+    
+    match confirm .trim() {
+        "confirm" => {
+            match fs::remove_file(vault) {
+                Ok(()) => println!("File deleted successfully!"),
+                Err(e) => match e.kind() {
+                    io::ErrorKind::NotFound => println!("File not found!"),
+                    _ => println!("Error deleting file: {}", e),
+                },
+            }
+        }
+        _ => {
+            println!("Invalid confirm, ABORTING")
+        }
+    }
+}
+
+fn delete_vault_entry(entry: &Entry){
+    
+    
 }
  
