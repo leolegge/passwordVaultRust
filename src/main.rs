@@ -117,7 +117,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>  {
                     println!("What would you like to do with you vault:\n\
                             1.Add new entry\n\
                             2.View all entries\n\
-                            3.Exit password vault");
+                            3.Exit current vault");
                     let mut entry_option = String::new();
                     
                     io::stdin()
@@ -146,7 +146,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>  {
                 }
             }
             2 => {
-                println!("Please select new name for new vault");
+                println!("Please select name for new vault");
                 let mut new_name = String::new();
                 
                 io::stdin()
@@ -178,66 +178,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>>  {
     }
     
     
-    
-    
-    
-    //EXAMPLE //////////////////////////////////////////////////////////////////////////////////
-    
-    /*
-    let plaintext = b"Hello world!";
-    let passphrase = "this is not a good passphrase";
-    
-    let encyrpted = match encrypt_with_passphrase(passphrase, plaintext)
-    {
-        Ok(data) => data,
-        Err(error) => panic!("Encountered error while encrypting: {}", error),
-    };
-    
-    println!("Encrypted array values: {:?}",  &encyrpted);
-    
-    let decrypted = match decrypt_with_passphrase(passphrase, &encyrpted){
-        Ok(data) => data,
-        Err(error) => panic!("Encountered error while decrypting: {}", error),
-    };
-    println!("Decrypted array values: {:?}",  &decrypted);
-    
-    
-    let plaintext_str = String::from_utf8(decrypted)?;
-    println!("Decrypted text: {}", plaintext_str);
-
-    //////////////////////////////////////////////////////////////////////////////////////////
-
-
-     */
-    
     Ok(())
 }
 
-fn encrypt_with_passphrase(passphrase: &str, plaintext: &[u8], ) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    let encryptor = age::Encryptor::with_user_passphrase(Secret::new(passphrase.to_owned()));
-
-    let mut encrypted = vec![];
-    let mut writer = encryptor.wrap_output(&mut encrypted)?;
-
-    writer.write_all(plaintext)?;
-    writer.finish()?; // finalize encryption
-
-    Ok(encrypted)
-}
-
-fn decrypt_with_passphrase(passphrase: &str, encrypted: &[u8]) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    
-    let decryptor = match age::Decryptor::new(&encrypted[..])? {
-            age::Decryptor::Passphrase(d) => d,
-            _ => unreachable!(),
-        };
-
-    let mut decrypted = vec![];
-    let mut reader = decryptor.decrypt(&Secret::new(passphrase.to_owned()), None)?;
-        reader.read_to_end(&mut decrypted)?;
-
-    Ok(decrypted)
-}
 
 fn get_all_vaults() -> Result<Vec<PathBuf>, Box<dyn std::error::Error>> {
     let current_dir = std::env::current_dir()?;
@@ -311,7 +254,7 @@ fn add_new_entry(vault: &mut Vault){
 
 fn view_entries(vault: &Vault){
     for entry in vault.entries.iter() {
-        println!("{:#?}", entry)
+        println!("Identifier: {} - Password: {}\n", entry.identifier, entry.password)
     }
 }
  
