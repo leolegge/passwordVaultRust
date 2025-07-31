@@ -7,7 +7,44 @@ use secrecy::{Secret};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
+enum VaultOption {
+    EnterVault,
+    CreateVault,
+    DeleteVault,
+    Exit,
+    InvalidInput
+}
 
+impl VaultOption {
+    fn from_usize(number: usize) -> Option<Self> {
+        match number{
+            1 => Some(VaultOption::EnterVault),
+            2 => Some(VaultOption::CreateVault),
+            3 => Some(VaultOption::DeleteVault),
+            4 => Some(VaultOption::Exit),
+            _ => Some(VaultOption::InvalidInput)
+        }
+    }
+}
+
+enum InteriorVaultOption{
+    AddEntry,
+    ViewEntries,
+    DeleteEntry,
+    ExitSave,
+}
+
+impl InteriorVaultOption {
+    fn from_usize(number: usize) -> Option<Self> {
+        match number {
+            1 => Some(InteriorVaultOption::AddEntry),
+            2 => Some(InteriorVaultOption::ViewEntries),
+            3 => Some(InteriorVaultOption::DeleteEntry),
+            4 => Some(InteriorVaultOption::ExitSave),
+            _ => None
+        }
+    }
+}
 
 
 
@@ -20,6 +57,7 @@ impl Vault {
     fn new() -> Vault {
         Vault { entries: Vec::new() }
     }
+    
     
     fn add_entry(&mut self, entry: Entry) {
         self.entries.push(entry);
@@ -45,7 +83,7 @@ impl Entry{
 fn main() -> Result<(), Box<dyn std::error::Error>>  {
     
     println!("Welcome to the password vault accessor system");
-    
+    //main menu system
     loop{
         println!("Please select an option \n\
         1.Enter vault to use\n\
@@ -59,13 +97,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>>  {
             .read_line(&mut option)
             .expect("Failed to read line");
         
-        let option : u8 =  match option.trim().parse(){
+        let option : usize =  match option.trim().parse(){
             Ok(num) => num,
             Err(_) => continue,
         };
         
+        let option: VaultOption = match VaultOption::from_usize(option){
+            Some(option) => option,
+            None => continue,
+        };
+        
         match option {
-            1 => {
+            VaultOption::EnterVault => {
                 println!("Please select desired vault to add to or read from");
                 let vaults = match get_all_vaults(){
                     Ok(vaults) => {
@@ -134,16 +177,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>>  {
                         .read_line(&mut entry_option)
                         .expect("Failed to read line");
 
-                    let entry_option : u8 =  match entry_option.trim().parse(){
+                    let entry_option : usize =  match entry_option.trim().parse(){
                         Ok(num) => num,
                         Err(_) => continue,
                     };
                     
+                    let entry_option : InteriorVaultOption = match InteriorVaultOption::from_usize(entry_option){
+                        Some(option) => option,
+                        None  => continue,
+                    };
                     
                     match entry_option {
-                        1 => add_new_entry(&mut loaded_vault),
-                        2 => view_entries(&loaded_vault),
-                        3 => {
+                        InteriorVaultOption::AddEntry => add_new_entry(&mut loaded_vault),
+                        InteriorVaultOption::ViewEntries => view_entries(&loaded_vault),
+                        InteriorVaultOption::DeleteEntry => {
                             println!("Select entry to remove");
                             
                             view_entries(&loaded_vault);
@@ -164,15 +211,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>>  {
                                 _ => continue
                             }
                         }
-                        4 => {
+                        InteriorVaultOption::ExitSave => {
                             save_vault_to_file(&loaded_vault, passphrase , selected_vault.file_name().unwrap().to_str().unwrap())?;
                             break
                         },
-                        _ => continue,
                     }
                 }
             }
-            2 => {
+            VaultOption::CreateVault => {
                 println!("Please select name for new vault");
                 let mut new_name = String::new();
                 
@@ -188,7 +234,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>  {
                 );
                 save_vault_to_file(&new_vault, passphrase, &new_name)?;
             }
-            3 => {
+            VaultOption::DeleteVault => {
                 println!("Please select desired vault to delete:");
                 let vaults = match get_all_vaults(){
                     Ok(vaults) => {
@@ -230,7 +276,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>>  {
                 
                 delete_vault(selected_vault);
             }
-            4 => {
+            VaultOption::Exit => {
                 break
             }
             _ => {
